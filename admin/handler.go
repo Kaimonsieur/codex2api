@@ -124,6 +124,8 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
+	h.store.TriggerUsageProbeAsync()
+
 	rows, err := h.db.ListActive(ctx)
 	if err != nil {
 		writeInternalError(c, err)

@@ -253,7 +253,9 @@ func (h *Handler) Responses(c *gin.Context) {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			parseCodexUsageHeaders(resp, account)
+			if usagePct, ok := parseCodexUsageHeaders(resp, account); ok {
+				h.store.PersistUsageSnapshot(account, usagePct)
+			}
 			errBody, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			h.store.Release(account)
@@ -385,7 +387,9 @@ func (h *Handler) Responses(c *gin.Context) {
 		h.logUsage(logInput)
 
 		resp.Body.Close()
-		parseCodexUsageHeaders(resp, account)
+		if usagePct, ok := parseCodexUsageHeaders(resp, account); ok {
+			h.store.PersistUsageSnapshot(account, usagePct)
+		}
 		h.store.Release(account)
 		return
 	}
@@ -458,7 +462,9 @@ func (h *Handler) ChatCompletions(c *gin.Context) {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			parseCodexUsageHeaders(resp, account)
+			if usagePct, ok := parseCodexUsageHeaders(resp, account); ok {
+				h.store.PersistUsageSnapshot(account, usagePct)
+			}
 			errBody, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			h.store.Release(account)
@@ -515,7 +521,7 @@ func (h *Handler) ChatCompletions(c *gin.Context) {
 				chunk, done := TranslateStreamChunk(data, model, chunkID)
 
 				eventType := gjson.GetBytes(data, "type").String()
-				if !ttftRecorded && eventType == "response.output_text.delta" {
+				if !ttftRecorded && strings.Contains(eventType, ".delta") {
 					firstTokenMs = int(time.Since(start).Milliseconds())
 					ttftRecorded = true
 				}
@@ -540,7 +546,7 @@ func (h *Handler) ChatCompletions(c *gin.Context) {
 
 			_ = ReadSSEStream(resp.Body, func(data []byte) bool {
 				eventType := gjson.GetBytes(data, "type").String()
-				if !ttftRecorded && eventType == "response.output_text.delta" {
+				if !ttftRecorded && strings.Contains(eventType, ".delta") {
 					firstTokenMs = int(time.Since(start).Milliseconds())
 					ttftRecorded = true
 				}
@@ -601,7 +607,9 @@ func (h *Handler) ChatCompletions(c *gin.Context) {
 		h.logUsage(logInput)
 
 		resp.Body.Close()
-		parseCodexUsageHeaders(resp, account)
+		if usagePct, ok := parseCodexUsageHeaders(resp, account); ok {
+			h.store.PersistUsageSnapshot(account, usagePct)
+		}
 		h.store.Release(account)
 		return
 	}
@@ -737,9 +745,9 @@ func (h *Handler) applyCooldown(account *auth.Account, statusCode int, body []by
 }
 
 // parseCodexUsageHeaders 从 Codex 响应头解析 7d 用量百分比
-func parseCodexUsageHeaders(resp *http.Response, account *auth.Account) {
+func parseCodexUsageHeaders(resp *http.Response, account *auth.Account) (float64, bool) {
 	if resp == nil {
-		return
+		return 0, false
 	}
 
 	// 解析 primary 和 secondary 窗口
@@ -775,12 +783,15 @@ func parseCodexUsageHeaders(resp *http.Response, account *auth.Account) {
 	if used7dStr != "" {
 		pct := parseFloat(used7dStr)
 		account.SetUsagePercent7d(pct)
+		return pct, true
 	}
+
+	return 0, false
 }
 
 // ParseCodexUsageHeaders 从响应头提取并更新账号用量信息
-func ParseCodexUsageHeaders(resp *http.Response, account *auth.Account) {
-	parseCodexUsageHeaders(resp, account)
+func ParseCodexUsageHeaders(resp *http.Response, account *auth.Account) (float64, bool) {
+	return parseCodexUsageHeaders(resp, account)
 }
 
 func parseFloat(s string) float64 {

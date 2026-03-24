@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,8 @@ type Account struct {
 	// 用量进度（从 Codex 响应头被动解析）
 	UsagePercent7d      float64 // 7d 窗口使用率 0-100+
 	UsagePercent7dValid bool
+	UsageUpdatedAt      time.Time
+	usageProbeInFlight  bool
 
 	// 高并发调度指标（原子操作，无需锁）
 	ActiveRequests int64 // 当前并发请求数
@@ -142,10 +145,16 @@ func (a *Account) RuntimeStatus() string {
 
 // SetUsagePercent7d 更新 7d 用量百分比
 func (a *Account) SetUsagePercent7d(pct float64) {
+	a.SetUsageSnapshot(pct, time.Now())
+}
+
+// SetUsageSnapshot 更新用量快照及时间
+func (a *Account) SetUsageSnapshot(pct float64, updatedAt time.Time) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.UsagePercent7d = pct
 	a.UsagePercent7dValid = true
+	a.UsageUpdatedAt = updatedAt
 }
 
 // GetUsagePercent7d 获取 7d 用量百分比
@@ -153,6 +162,44 @@ func (a *Account) GetUsagePercent7d() (float64, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.UsagePercent7d, a.UsagePercent7dValid
+}
+
+// NeedsUsageProbe 判断是否需要主动探针刷新用量
+func (a *Account) NeedsUsageProbe(maxAge time.Duration) bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if a.usageProbeInFlight || a.AccessToken == "" || a.Status == StatusError {
+		return false
+	}
+	if a.Status == StatusCooldown && a.CooldownReason == "unauthorized" {
+		return false
+	}
+	if a.Status == StatusCooldown && a.CooldownReason == "rate_limited" {
+		return true
+	}
+	if !a.UsagePercent7dValid || a.UsageUpdatedAt.IsZero() {
+		return true
+	}
+	return time.Since(a.UsageUpdatedAt) > maxAge
+}
+
+// TryBeginUsageProbe 尝试开始一次用量探针
+func (a *Account) TryBeginUsageProbe() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.usageProbeInFlight {
+		return false
+	}
+	a.usageProbeInFlight = true
+	return true
+}
+
+// FinishUsageProbe 结束一次用量探针
+func (a *Account) FinishUsageProbe() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.usageProbeInFlight = false
 }
 
 // GetActiveRequests 获取当前并发数
@@ -184,6 +231,9 @@ type Store struct {
 	testModel       atomic.Value // 测试连接使用的模型（string）
 	db              *database.DB
 	tokenCache      *cache.TokenCache
+	usageProbeMu    sync.RWMutex
+	usageProbe      func(context.Context, *Account) error
+	usageProbeBatch atomic.Bool
 	stopCh          chan struct{}
 	wg              sync.WaitGroup
 }
@@ -298,6 +348,21 @@ func (s *Store) loadFromDB(ctx context.Context) error {
 				}
 			}
 		}
+		if usagePct := row.GetCredential("codex_7d_used_percent"); usagePct != "" {
+			if parsed, err := strconv.ParseFloat(usagePct, 64); err == nil {
+				updatedAt := time.Time{}
+				if usageUpdatedAt := row.GetCredential("codex_usage_updated_at"); usageUpdatedAt != "" {
+					if parsedTime, err := time.Parse(time.RFC3339, usageUpdatedAt); err == nil {
+						updatedAt = parsedTime
+					} else {
+						log.Printf("[账号 %d] 解析 codex_usage_updated_at 失败: %v", row.ID, err)
+					}
+				}
+				account.SetUsageSnapshot(parsed, updatedAt)
+			} else {
+				log.Printf("[账号 %d] 解析 codex_7d_used_percent 失败: %v", row.ID, err)
+			}
+		}
 
 		s.accounts = append(s.accounts, account)
 	}
@@ -318,6 +383,7 @@ func (s *Store) StartBackgroundRefresh() {
 			select {
 			case <-ticker.C:
 				s.parallelRefreshAll(context.Background())
+				s.TriggerUsageProbeAsync()
 			case <-s.stopCh:
 				return
 			}
@@ -511,6 +577,87 @@ func (s *Store) ClearCooldown(acc *Account) {
 	if err := s.db.ClearCooldown(ctx, acc.DBID); err != nil {
 		log.Printf("[账号 %d] 清理冷却状态失败: %v", acc.DBID, err)
 	}
+}
+
+// PersistUsageSnapshot 持久化账号 7d 用量快照
+func (s *Store) PersistUsageSnapshot(acc *Account, pct7d float64) {
+	if acc == nil {
+		return
+	}
+
+	now := time.Now()
+	acc.SetUsageSnapshot(pct7d, now)
+
+	if s.db == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := s.db.UpdateUsageSnapshot(ctx, acc.DBID, pct7d, now); err != nil {
+		log.Printf("[账号 %d] 持久化用量快照失败: %v", acc.DBID, err)
+	}
+}
+
+// SetUsageProbeFunc 注册主动探针回调
+func (s *Store) SetUsageProbeFunc(fn func(context.Context, *Account) error) {
+	s.usageProbeMu.Lock()
+	defer s.usageProbeMu.Unlock()
+	s.usageProbe = fn
+}
+
+// TriggerUsageProbeAsync 异步触发一次批量用量探针
+func (s *Store) TriggerUsageProbeAsync() {
+	if !s.usageProbeBatch.CompareAndSwap(false, true) {
+		return
+	}
+
+	go func() {
+		defer s.usageProbeBatch.Store(false)
+		s.parallelProbeUsage(context.Background())
+	}()
+}
+
+func (s *Store) parallelProbeUsage(ctx context.Context) {
+	s.usageProbeMu.RLock()
+	probeFn := s.usageProbe
+	s.usageProbeMu.RUnlock()
+	if probeFn == nil {
+		return
+	}
+
+	s.mu.RLock()
+	accounts := make([]*Account, len(s.accounts))
+	copy(accounts, s.accounts)
+	s.mu.RUnlock()
+
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
+
+	for _, acc := range accounts {
+		if !acc.NeedsUsageProbe(10 * time.Minute) {
+			continue
+		}
+		if !acc.TryBeginUsageProbe() {
+			continue
+		}
+
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(account *Account) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			defer account.FinishUsageProbe()
+
+			probeCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
+			defer cancel()
+			if err := probeFn(probeCtx, account); err != nil {
+				log.Printf("[账号 %d] 用量探针失败: %v", account.DBID, err)
+			}
+		}(acc)
+	}
+
+	wg.Wait()
 }
 
 // RefreshSingle 刷新单个账号（供 admin handler 调用）

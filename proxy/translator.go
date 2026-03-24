@@ -122,7 +122,11 @@ func TranslateStreamChunk(eventData []byte, model string, chunkID string) ([]byt
 	switch eventType {
 	case "response.output_text.delta":
 		delta := gjson.GetBytes(eventData, "delta").String()
-		return buildOpenAIChunk(chunkID, model, delta, ""), false
+		return buildOpenAIChunk(chunkID, model, delta, "", ""), false
+
+	case "response.reasoning_summary_text.delta", "response.reasoning_text.delta":
+		delta := gjson.GetBytes(eventData, "delta").String()
+		return buildOpenAIChunk(chunkID, model, "", delta, ""), false
 
 	case "response.content_part.done":
 		// 内容部分完成，不需要翻译
@@ -147,7 +151,8 @@ func TranslateStreamChunk(eventData []byte, model string, chunkID string) ([]byt
 
 	case "response.created", "response.in_progress",
 		"response.output_item.added", "response.content_part.added",
-		"response.reasoning_summary_text.delta", "response.reasoning_summary_text.done",
+		"response.reasoning_summary_text.done",
+		"response.reasoning.encrypted_content.delta", "response.reasoning.encrypted_content.done",
 		"response.reasoning_summary_part.added", "response.reasoning_summary_part.done":
 		// 这些事件不需要转发给下游
 		return nil, false
@@ -155,7 +160,7 @@ func TranslateStreamChunk(eventData []byte, model string, chunkID string) ([]byt
 	default:
 		// 未知事件类型，尝试提取 delta
 		if delta := gjson.GetBytes(eventData, "delta"); delta.Exists() && delta.Type == gjson.String {
-			return buildOpenAIChunk(chunkID, model, delta.String(), ""), false
+			return buildOpenAIChunk(chunkID, model, delta.String(), "", ""), false
 		}
 		return nil, false
 	}
@@ -194,18 +199,29 @@ func extractUsage(eventData []byte) *UsageInfo {
 }
 
 // buildOpenAIChunk 构建 OpenAI 流式响应块
-func buildOpenAIChunk(id, model, content, finishReason string) []byte {
+func buildOpenAIChunk(id, model, content, reasoningContent, finishReason string) []byte {
 	chunk := []byte(`{}`)
 	chunk, _ = sjson.SetBytes(chunk, "id", id)
 	chunk, _ = sjson.SetBytes(chunk, "object", "chat.completion.chunk")
 	chunk, _ = sjson.SetBytes(chunk, "created", 0) // 由调用方填充
 	chunk, _ = sjson.SetBytes(chunk, "model", model)
 
-	if content != "" {
+	if content != "" || reasoningContent != "" {
 		chunk, _ = sjson.SetBytes(chunk, "choices.0.index", 0)
-		chunk, _ = sjson.SetBytes(chunk, "choices.0.delta.content", content)
+		if content != "" {
+			chunk, _ = sjson.SetBytes(chunk, "choices.0.delta.content", content)
+		}
+		if reasoningContent != "" {
+			chunk, _ = sjson.SetBytes(chunk, "choices.0.delta.reasoning_content", reasoningContent)
+		}
+	} else if finishReason == "" {
+		// 确保存在 delta 对象（即便是空的），符合 OpenAI 规范
+		chunk, _ = sjson.SetBytes(chunk, "choices.0.index", 0)
+		chunk, _ = sjson.SetRawBytes(chunk, "choices.0.delta", []byte(`{}`))
 	}
+
 	if finishReason != "" {
+		chunk, _ = sjson.SetBytes(chunk, "choices.0.index", 0)
 		chunk, _ = sjson.SetBytes(chunk, "choices.0.finish_reason", finishReason)
 	} else {
 		chunk, _ = sjson.SetRawBytes(chunk, "choices.0.finish_reason", []byte("null"))
@@ -216,7 +232,7 @@ func buildOpenAIChunk(id, model, content, finishReason string) []byte {
 
 // buildOpenAIFinalChunk 构建最终的 OpenAI 流式响应块（包含 usage）
 func buildOpenAIFinalChunk(id, model string, usage *UsageInfo) []byte {
-	chunk := buildOpenAIChunk(id, model, "", "stop")
+	chunk := buildOpenAIChunk(id, model, "", "", "stop")
 	if usage != nil {
 		chunk, _ = sjson.SetBytes(chunk, "usage.prompt_tokens", usage.PromptTokens)
 		chunk, _ = sjson.SetBytes(chunk, "usage.completion_tokens", usage.CompletionTokens)

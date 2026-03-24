@@ -65,8 +65,14 @@ func main() {
 	}
 	cancel()
 
+	// 全局 RPM 限流器（支持运行时动态调整）
+	rateLimiter := proxy.NewRateLimiter(cfg.GlobalRPM)
+	adminHandler := admin.NewHandler(store, db, tc, rateLimiter)
+	store.SetUsageProbeFunc(adminHandler.ProbeUsageSnapshot)
+
 	// 启动后台刷新
 	store.StartBackgroundRefresh()
+	store.TriggerUsageProbeAsync()
 	defer store.Stop()
 
 	log.Printf("账号就绪: %d/%d 可用", store.AvailableCount(), store.AccountCount())
@@ -79,8 +85,6 @@ func main() {
 
 	handler := proxy.NewHandler(store, cfg.APIKeys, db)
 
-	// 全局 RPM 限流器（支持运行时动态调整）
-	rateLimiter := proxy.NewRateLimiter(cfg.GlobalRPM)
 	r.Use(rateLimiter.Middleware())
 	if cfg.GlobalRPM > 0 {
 		log.Printf("全局限流: %d RPM", cfg.GlobalRPM)
@@ -88,9 +92,6 @@ func main() {
 	log.Printf("每账号并发上限: %d", cfg.MaxConcurrency)
 
 	handler.RegisterRoutes(r)
-
-	// 管理后台 API
-	adminHandler := admin.NewHandler(store, db, tc, rateLimiter)
 	adminHandler.RegisterRoutes(r)
 
 	// 管理后台前端静态文件

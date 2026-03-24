@@ -79,7 +79,9 @@ func (h *Handler) TestConnection(c *gin.Context) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		proxy.ParseCodexUsageHeaders(resp, account)
+		if usagePct, ok := proxy.ParseCodexUsageHeaders(resp, account); ok {
+			h.store.PersistUsageSnapshot(account, usagePct)
+		}
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:
 			h.store.MarkCooldown(account, 24*time.Hour, "unauthorized")
@@ -91,7 +93,9 @@ func (h *Handler) TestConnection(c *gin.Context) {
 		return
 	}
 
-	proxy.ParseCodexUsageHeaders(resp, account)
+	if usagePct, ok := proxy.ParseCodexUsageHeaders(resp, account); ok {
+		h.store.PersistUsageSnapshot(account, usagePct)
+	}
 
 	// 解析 SSE 流
 	hasContent := false
@@ -221,15 +225,21 @@ func (h *Handler) BatchTest(c *gin.Context) {
 
 			switch resp.StatusCode {
 			case http.StatusOK:
-				proxy.ParseCodexUsageHeaders(resp, acc)
+				if usagePct, ok := proxy.ParseCodexUsageHeaders(resp, acc); ok {
+					h.store.PersistUsageSnapshot(acc, usagePct)
+				}
 				h.store.ClearCooldown(acc)
 				atomic.AddInt64(&successCount, 1)
 			case http.StatusUnauthorized:
-				proxy.ParseCodexUsageHeaders(resp, acc)
+				if usagePct, ok := proxy.ParseCodexUsageHeaders(resp, acc); ok {
+					h.store.PersistUsageSnapshot(acc, usagePct)
+				}
 				h.store.MarkCooldown(acc, 24*time.Hour, "unauthorized")
 				atomic.AddInt64(&bannedCount, 1)
 			case http.StatusTooManyRequests:
-				proxy.ParseCodexUsageHeaders(resp, acc)
+				if usagePct, ok := proxy.ParseCodexUsageHeaders(resp, acc); ok {
+					h.store.PersistUsageSnapshot(acc, usagePct)
+				}
 				h.store.MarkCooldown(acc, 5*time.Minute, "rate_limited")
 				atomic.AddInt64(&rateLimitCount, 1)
 			default:

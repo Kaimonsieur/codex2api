@@ -54,6 +54,23 @@ export default function Accounts() {
     initialData: [],
     load: loadAccounts,
   })
+  const usageBootstrapReloadedRef = useRef(false)
+
+  useEffect(() => {
+    const hasMissingUsage = accounts.some(
+      (account) => account.plan_type?.toLowerCase() === 'free' && (account.usage_percent_7d === null || account.usage_percent_7d === undefined)
+    )
+    if (!hasMissingUsage || usageBootstrapReloadedRef.current) {
+      return
+    }
+
+    usageBootstrapReloadedRef.current = true
+    const timer = window.setTimeout(() => {
+      void reloadSilently()
+    }, 4000)
+
+    return () => window.clearTimeout(timer)
+  }, [accounts, reloadSilently])
 
   const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE))
   const pagedAccounts = accounts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)

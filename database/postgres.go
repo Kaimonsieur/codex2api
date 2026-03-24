@@ -695,6 +695,14 @@ func (db *DB) UpdateCredentials(ctx context.Context, id int64, credentials map[s
 	return err
 }
 
+// UpdateUsageSnapshot 持久化账号用量快照
+func (db *DB) UpdateUsageSnapshot(ctx context.Context, id int64, pct7d float64, updatedAt time.Time) error {
+	return db.UpdateCredentials(ctx, id, map[string]interface{}{
+		"codex_7d_used_percent":  pct7d,
+		"codex_usage_updated_at": updatedAt.Format(time.RFC3339),
+	})
+}
+
 // SetError 标记账号错误状态
 func (db *DB) SetError(ctx context.Context, id int64, errorMsg string) error {
 	query := `UPDATE accounts SET status = 'error', error_message = $1, cooldown_reason = '', cooldown_until = NULL, updated_at = NOW() WHERE id = $2`

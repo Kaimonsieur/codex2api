@@ -248,13 +248,13 @@ export default function Usage() {
                       <TableHead className="text-[14px] font-semibold">状态</TableHead>
                       <TableHead className="text-[14px] font-semibold">模型</TableHead>
                       <TableHead className="text-[14px] font-semibold">来源账号</TableHead>
-                      <TableHead className="text-[14px] font-semibold">端点</TableHead>
+                      <TableHead className="text-[16px] font-semibold" style={{ fontFamily: "'Geist Mono', monospace" }}>端点</TableHead>
                       <TableHead className="text-[14px] font-semibold">类型</TableHead>
                       <TableHead className="text-[14px] font-semibold">TOKEN</TableHead>
                       <TableHead className="text-[14px] font-semibold">读取缓存</TableHead>
-                      <TableHead className="text-[14px] font-semibold">首字时间</TableHead>
-                      <TableHead className="text-[14px] font-semibold">总耗时</TableHead>
-                      <TableHead className="text-[14px] font-semibold">时间</TableHead>
+                      <TableHead className="text-[16px] font-semibold" style={{ fontFamily: "'Geist Mono', monospace" }}>首字时间</TableHead>
+                      <TableHead className="text-[16px] font-semibold" style={{ fontFamily: "'Geist Mono', monospace" }}>总耗时</TableHead>
+                      <TableHead className="text-[16px] font-semibold" style={{ fontFamily: "'Geist Mono', monospace" }}>时间</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -297,8 +297,8 @@ export default function Usage() {
                           {log.account_email || '-'}
                         </TableCell>
                         <TableCell>
-                          <div className="text-[14px] leading-relaxed">
-                            <span className="font-mono text-muted-foreground">
+                          <div className="text-[16px] leading-relaxed" style={{ fontFamily: "'Geist Mono', monospace" }}>
+                            <span className="text-muted-foreground">
                               {log.inbound_endpoint || log.endpoint || '-'}
                             </span>
                             {log.upstream_endpoint && log.upstream_endpoint !== log.inbound_endpoint && (
@@ -347,17 +347,17 @@ export default function Usage() {
                         </TableCell>
                         <TableCell>
                           {log.first_token_ms > 0 ? (
-                            <span className={`font-mono text-[14px] ${log.first_token_ms > 5000 ? 'text-red-500' : log.first_token_ms > 2000 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                            <span className={`text-[16px] ${log.first_token_ms > 5000 ? 'text-red-500' : log.first_token_ms > 2000 ? 'text-amber-500' : 'text-emerald-500'}`} style={{ fontFamily: "'Geist Mono', monospace" }}>
                               {log.first_token_ms > 1000 ? `${(log.first_token_ms / 1000).toFixed(1)}s` : `${log.first_token_ms}ms`}
                             </span>
-                          ) : <span className="text-[14px] text-muted-foreground">-</span>}
+                          ) : <span className="text-[16px] text-muted-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>-</span>}
                         </TableCell>
                         <TableCell>
-                          <span className={`font-mono text-[14px] ${log.duration_ms > 30000 ? 'text-red-500' : log.duration_ms > 10000 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          <span className={`text-[16px] ${log.duration_ms > 30000 ? 'text-red-500' : log.duration_ms > 10000 ? 'text-amber-500' : 'text-muted-foreground'}`} style={{ fontFamily: "'Geist Mono', monospace" }}>
                             {log.duration_ms > 1000 ? `${(log.duration_ms / 1000).toFixed(1)}s` : `${log.duration_ms}ms`}
                           </span>
                         </TableCell>
-                        <TableCell className="text-[14px] font-mono text-muted-foreground whitespace-nowrap">
+                        <TableCell className="text-[16px] text-muted-foreground whitespace-nowrap" style={{ fontFamily: "'Geist Mono', monospace" }}>
                           {formatTime(log.created_at)}
                         </TableCell>
                       </TableRow>

@@ -32,9 +32,9 @@ func getPooledClient(proxyURL string) *http.Client {
 
 	transport := &http.Transport{
 		// 连接池配置
-		MaxIdleConns:        200,               // 全局最大空闲连接
-		MaxIdleConnsPerHost: 50,                // 每个 Host 最大空闲连接（chatgpt.com 只有 1 个 host）
-		MaxConnsPerHost:     100,               // 每个 Host 最大并发连接
+		MaxIdleConns:        400,               // 全局最大空闲连接
+		MaxIdleConnsPerHost: 200,               // 每个 Host 最大空闲连接（chatgpt.com 只有 1 个 host）
+		MaxConnsPerHost:     400,               // 每个 Host 最大并发连接
 		IdleConnTimeout:     90 * time.Second,  // 空闲连接超时
 		TLSHandshakeTimeout: 10 * time.Second,  // TLS 握手超时
 		// Keep-Alive
