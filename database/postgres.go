@@ -280,12 +280,17 @@ func (db *DB) GetSystemSettings(ctx context.Context) (*SystemSettings, error) {
 	return s, err
 }
 
-// UpdateSystemSettings 更新全局设置
+// UpdateSystemSettings 更新全局设置（upsert：无行时自动插入）
 func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error {
 	_, err := db.conn.ExecContext(ctx, `
-		UPDATE system_settings
-		SET max_concurrency = $1, global_rpm = $2, test_model = $3, test_concurrency = $4, proxy_url = $5
-		WHERE id = 1
+		INSERT INTO system_settings (id, max_concurrency, global_rpm, test_model, test_concurrency, proxy_url)
+		VALUES (1, $1, $2, $3, $4, $5)
+		ON CONFLICT (id) DO UPDATE SET
+			max_concurrency  = EXCLUDED.max_concurrency,
+			global_rpm       = EXCLUDED.global_rpm,
+			test_model       = EXCLUDED.test_model,
+			test_concurrency = EXCLUDED.test_concurrency,
+			proxy_url        = EXCLUDED.proxy_url
 	`, s.MaxConcurrency, s.GlobalRPM, s.TestModel, s.TestConcurrency, s.ProxyURL)
 	return err
 }

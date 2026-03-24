@@ -75,6 +75,10 @@ export default function Accounts() {
   const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE))
   const pagedAccounts = accounts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const allPageSelected = pagedAccounts.length > 0 && pagedAccounts.every((a) => selected.has(a.id))
+  const totalAccounts = accounts.length
+  const normalAccounts = accounts.filter((account) => account.status === 'active' || account.status === 'ready').length
+  const rateLimitedAccounts = accounts.filter((account) => account.status === 'rate_limited').length
+  const bannedAccounts = accounts.filter((account) => account.status === 'unauthorized').length
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -292,6 +296,13 @@ export default function Accounts() {
           )}
         />
 
+        <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <CompactStat label="总账号数量" value={totalAccounts} tone="neutral" />
+          <CompactStat label="正常账号" value={normalAccounts} tone="success" />
+          <CompactStat label="限流账号" value={rateLimitedAccounts} tone="warning" />
+          <CompactStat label="封禁账号" value={bannedAccounts} tone="danger" />
+        </div>
+
         {selected.size > 0 && (
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 mb-4 rounded-2xl bg-primary/10 border border-primary/20 text-sm font-semibold text-primary">
             <span>已选 {selected.size} 项</span>
@@ -490,6 +501,48 @@ export default function Accounts() {
         <ToastNotice toast={toast} />
       </>
     </StateShell>
+  )
+}
+
+function CompactStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone: 'neutral' | 'success' | 'warning' | 'danger'
+}) {
+  const toneStyle = {
+    neutral: {
+      chip: 'bg-slate-500/10 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300',
+      dot: 'bg-slate-500',
+    },
+    success: {
+      chip: 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300',
+      dot: 'bg-emerald-500',
+    },
+    warning: {
+      chip: 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300',
+      dot: 'bg-amber-500',
+    },
+    danger: {
+      chip: 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-300',
+      dot: 'bg-red-500',
+    },
+  }[tone]
+
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-border bg-white/65 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+      <div className="min-w-0">
+        <div className="text-[12px] font-semibold text-muted-foreground">{label}</div>
+        <div className="mt-1 text-[24px] font-bold leading-none tracking-tight text-foreground">{value}</div>
+      </div>
+      <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${toneStyle.chip}`}>
+        <span className={`size-2 rounded-full ${toneStyle.dot}`} />
+        {label.replace('账号', '')}
+      </div>
+    </div>
   )
 }
 
