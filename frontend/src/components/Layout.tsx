@@ -1,25 +1,36 @@
 import type { PropsWithChildren, ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, Activity, Settings, Server, Workflow } from 'lucide-react'
+import { LayoutDashboard, Users, Activity, Settings, Server, Workflow, Sun, Moon, Languages } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import logoImg from '../assets/logo.png'
+import { useTheme } from '../hooks/useTheme'
 
-type NavItem = {
+type NavDef = {
   to: string
-  label: string
+  labelKey: string
   icon: ReactNode
   end?: boolean
 }
 
-const navItems: NavItem[] = [
-  { to: '/', label: '仪表盘', icon: <LayoutDashboard className="size-[18px]" />, end: true },
-  { to: '/accounts', label: '账号管理', icon: <Users className="size-[18px]" /> },
-  { to: '/ops', label: '系统运维', icon: <Server className="size-[18px]" />, end: true },
-  { to: '/ops/scheduler', label: '调度面板', icon: <Workflow className="size-[18px]" />, end: true },
-  { to: '/usage', label: '使用统计', icon: <Activity className="size-[18px]" /> },
-  { to: '/settings', label: '系统设置', icon: <Settings className="size-[18px]" /> },
+const navDefs: NavDef[] = [
+  { to: '/', labelKey: 'nav.dashboard', icon: <LayoutDashboard className="size-[18px]" />, end: true },
+  { to: '/accounts', labelKey: 'nav.accounts', icon: <Users className="size-[18px]" /> },
+  { to: '/ops', labelKey: 'nav.ops', icon: <Server className="size-[18px]" />, end: true },
+  { to: '/ops/scheduler', labelKey: 'nav.scheduler', icon: <Workflow className="size-[18px]" />, end: true },
+  { to: '/usage', labelKey: 'nav.usage', icon: <Activity className="size-[18px]" /> },
+  { to: '/settings', labelKey: 'nav.settings', icon: <Settings className="size-[18px]" /> },
 ]
 
 export default function Layout({ children }: PropsWithChildren) {
+  const { theme, toggle } = useTheme()
+  const { t, i18n } = useTranslation()
+
+  const toggleLang = () => {
+    const next = i18n.language === 'zh' ? 'en' : 'zh'
+    i18n.changeLanguage(next)
+    localStorage.setItem('lang', next)
+  }
+
   return (
     <div className="min-h-dvh">
       <div className="grid grid-cols-[296px_minmax(0,1fr)] max-w-full max-lg:grid-cols-1 max-lg:px-4">
@@ -39,17 +50,14 @@ export default function Layout({ children }: PropsWithChildren) {
                   </span>
                 </div>
               </div>
-              <p className="mt-3 text-[13px] text-muted-foreground leading-relaxed">
-                管理账号池与请求流量的控制台
-              </p>
             </div>
 
             {/* Nav */}
-            <nav className="flex-1 flex flex-col gap-2 pt-5" aria-label="主导航">
+            <nav className="flex-1 flex flex-col gap-2 pt-5" aria-label="Main navigation">
               <span className="text-[12px] font-bold tracking-[0.16em] uppercase text-primary/70 mb-1">
-                控制台
+                {t('nav.console')}
               </span>
-              {navItems.map((item) => (
+              {navDefs.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -63,7 +71,7 @@ export default function Layout({ children }: PropsWithChildren) {
                   }
                 >
                   {item.icon}
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                 </NavLink>
               ))}
             </nav>
@@ -72,17 +80,33 @@ export default function Layout({ children }: PropsWithChildren) {
             <div className="mt-auto flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/16 bg-[hsl(var(--success-bg))] px-3 py-1.5 text-[11px] font-bold text-[hsl(var(--success))] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
                 <span className="size-2 rounded-full bg-emerald-500" />
-                在线
+                {t('common.online')}
               </span>
-              <a
-                href="https://github.com/james-6-23/codex2api"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/60 transition-all duration-150"
-                title="GitHub"
-              >
-                <svg className="size-[18px]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-              </a>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={toggleLang}
+                  className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/60 dark:hover:bg-white/10 transition-all duration-150 text-[12px] font-bold"
+                  title={i18n.language === 'zh' ? 'English' : '中文'}
+                >
+                  <Languages className="size-[18px]" />
+                </button>
+                <a
+                  href="https://github.com/james-6-23/codex2api"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/60 dark:hover:bg-white/10 transition-all duration-150"
+                  title="GitHub"
+                >
+                  <svg className="size-[18px]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                </a>
+                <button
+                  onClick={toggle}
+                  className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/60 dark:hover:bg-white/10 transition-all duration-150"
+                  title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
+                >
+                  {theme === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+                </button>
+              </div>
             </div>
           </div>
         </aside>
@@ -90,22 +114,38 @@ export default function Layout({ children }: PropsWithChildren) {
         {/* Main content */}
         <main className="min-w-0 p-6 max-lg:pb-[104px]">
           {/* Mobile topbar */}
-          <header className="hidden max-lg:flex items-center justify-between gap-4 mb-4 p-3.5 border border-border rounded-[22px] bg-white/70">
+          <header className="hidden max-lg:flex items-center justify-between gap-4 mb-4 p-3.5 border border-border rounded-[22px] bg-white/70 dark:bg-[hsl(220_13%_15%/0.7)]">
             <div className="flex items-center gap-3">
               <img src={logoImg} alt="CodexProxy" className="w-8 h-8 rounded-[10px] object-cover" />
               <strong className="text-lg">CodexProxy</strong>
             </div>
-            <span className="inline-flex items-center justify-center min-h-[28px] px-2.5 rounded-full text-[12px] font-bold bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">
-              在线
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleLang}
+                className="flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground transition-colors text-[11px] font-bold"
+                title={i18n.language === 'zh' ? 'English' : '中文'}
+              >
+                <Languages className="size-4" />
+              </button>
+              <button
+                onClick={toggle}
+                className="flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
+              >
+                {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              </button>
+              <span className="inline-flex items-center justify-center min-h-[28px] px-2.5 rounded-full text-[12px] font-bold bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]">
+                {t('common.online')}
+              </span>
+            </div>
           </header>
 
           <div className="min-h-full">{children}</div>
         </main>
 
         {/* Mobile bottom nav */}
-        <nav className="fixed left-4 right-4 bottom-4 z-40 hidden max-lg:grid grid-cols-6 gap-2 p-2 border border-border rounded-3xl bg-white/90 shadow-lg backdrop-blur-[20px]" aria-label="移动导航">
-          {navItems.map((item) => (
+        <nav className="fixed left-4 right-4 bottom-4 z-40 hidden max-lg:grid grid-cols-6 gap-2 p-2 border border-border rounded-3xl bg-white/90 shadow-lg backdrop-blur-[20px]" aria-label="Mobile navigation">
+          {navDefs.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -119,7 +159,7 @@ export default function Layout({ children }: PropsWithChildren) {
               }
             >
               {item.icon}
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </NavLink>
           ))}
         </nav>

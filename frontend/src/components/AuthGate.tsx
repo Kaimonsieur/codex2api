@@ -1,11 +1,13 @@
 import type { PropsWithChildren } from 'react'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getAdminKey, setAdminKey } from '../api'
 import logoImg from '../assets/logo.png'
 
 type AuthStatus = 'checking' | 'authenticated' | 'need_login'
 
 export default function AuthGate({ children }: PropsWithChildren) {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<AuthStatus>('checking')
   const [inputKey, setInputKey] = useState('')
   const [error, setError] = useState('')
@@ -23,7 +25,6 @@ export default function AuthGate({ children }: PropsWithChildren) {
         setStatus('authenticated')
       }
     } catch {
-      // 网络错误等，允许进入
       setStatus('authenticated')
     }
   }, [])
@@ -34,7 +35,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
 
   const handleLogin = async () => {
     if (!inputKey.trim()) {
-      setError('请输入管理密钥')
+      setError(t('auth.error'))
       return
     }
     setSubmitting(true)
@@ -44,13 +45,13 @@ export default function AuthGate({ children }: PropsWithChildren) {
         headers: { 'X-Admin-Key': inputKey.trim() },
       })
       if (res.status === 401) {
-        setError('密钥错误，请重新输入')
+        setError(t('auth.error'))
       } else {
         setAdminKey(inputKey.trim())
         setStatus('authenticated')
       }
     } catch {
-      setError('网络错误，请稍后重试')
+      setError(t('auth.error'))
     } finally {
       setSubmitting(false)
     }
@@ -61,7 +62,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
       <div className="flex items-center justify-center min-h-dvh">
         <div className="text-center">
           <div className="size-8 mx-auto mb-3 rounded-full border-3 border-primary/30 border-t-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">正在检查认证状态...</p>
+          <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     )
@@ -76,19 +77,19 @@ export default function AuthGate({ children }: PropsWithChildren) {
             <h1 className="text-[28px] font-bold bg-gradient-to-br from-[hsl(258,60%,63%)] to-[hsl(210,80%,60%)] bg-clip-text text-transparent">
               Codex2API
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">请输入管理密钥以访问控制台</p>
+            <p className="text-sm text-muted-foreground mt-1">{t('auth.subtitle')}</p>
           </div>
 
           <div className="rounded-3xl border border-border bg-white/80 shadow-xl shadow-black/[0.03] p-6 backdrop-blur-sm">
             <div className="space-y-4">
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">管理密钥</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.adminSecret')}</label>
                 <input
                   type="password"
                   value={inputKey}
                   onChange={(e) => { setInputKey(e.target.value); setError('') }}
                   onKeyDown={(e) => { if (e.key === 'Enter') void handleLogin() }}
-                  placeholder="输入管理密钥"
+                  placeholder={t('auth.placeholder')}
                   autoFocus
                   className="w-full h-11 px-4 rounded-xl border border-border bg-white text-[15px] outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
                 />
@@ -103,14 +104,10 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 disabled={submitting}
                 className="w-full h-11 rounded-xl bg-gradient-to-r from-[hsl(258,60%,63%)] to-[hsl(210,80%,60%)] text-white font-semibold text-[15px] shadow-lg shadow-primary/20 transition-all hover:opacity-90 disabled:opacity-50"
               >
-                {submitting ? '验证中...' : '登录'}
+                {submitting ? t('common.loading') : t('auth.login')}
               </button>
             </div>
           </div>
-
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            管理密钥在「系统设置 → 安全」中配置
-          </p>
         </div>
       </div>
     )

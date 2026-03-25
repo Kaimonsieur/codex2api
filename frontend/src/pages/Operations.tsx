@@ -12,6 +12,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import PageHeader from '../components/PageHeader'
 import StateShell from '../components/StateShell'
@@ -23,6 +24,7 @@ import { Card, CardContent } from '@/components/ui/card'
 type MetricTone = 'normal' | 'warning' | 'danger' | 'info'
 
 export default function Operations() {
+  const { t } = useTranslation()
   const loadOperationsData = useCallback(() => api.getOpsOverview(), [])
 
   const { data: overview, loading, error, reload, reloadSilently } = useDataLoader<OpsOverviewResponse | null>({
@@ -46,20 +48,20 @@ export default function Operations() {
       loading={loading}
       error={error}
       onRetry={() => void reload()}
-      loadingTitle="正在加载系统运维"
-      loadingDescription="服务状态、连接池和实时流量正在同步。"
-      errorTitle="系统运维页加载失败"
+      loadingTitle={t('ops.loadingTitle')}
+      loadingDescription={t('ops.loadingDesc')}
+      errorTitle={t('ops.errorTitle')}
     >
       <>
         <PageHeader
-          title="系统运维"
-          description="查看服务运行状态、连接池压力和实时流量表现。"
+          title={t('ops.title')}
+          description={t('ops.description')}
           actions={
             <div className="flex items-center gap-3 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
-              <span className="text-sm text-muted-foreground max-sm:text-center">最后更新时间：{updatedLabel}</span>
+              <span className="text-sm text-muted-foreground max-sm:text-center">{t('ops.lastUpdated', { time: updatedLabel })}</span>
               <Button variant="outline" onClick={() => void reload()}>
                 <RefreshCw className="size-3.5" />
-                刷新
+                {t('common.refresh')}
               </Button>
             </div>
           }
@@ -68,91 +70,101 @@ export default function Operations() {
         {overview ? (
           <>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-6">
-              <SummaryPill label="运行时长" value={formatUptime(overview.uptime_seconds)} />
-              <SummaryPill label="账号池" value={`${overview.runtime.available_accounts} / ${overview.runtime.total_accounts}`} />
-              <SummaryPill label="今日请求" value={formatNumber(overview.traffic.today_requests)} />
-              <SummaryPill label="今日错误率" value={`${overview.traffic.error_rate.toFixed(1)}%`} />
+              <SummaryPill label={t('ops.uptime')} value={formatUptime(overview.uptime_seconds, t)} />
+              <SummaryPill label={t('ops.accountPool')} value={`${overview.runtime.available_accounts} / ${overview.runtime.total_accounts}`} />
+              <SummaryPill label={t('ops.todayRequests')} value={formatNumber(overview.traffic.today_requests)} />
+              <SummaryPill label={t('ops.todayErrorRate')} value={`${overview.traffic.error_rate.toFixed(1)}%`} />
             </div>
 
             <Card>
               <CardContent className="p-6">
                 <div className="mb-5 flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-base font-semibold text-foreground">系统概览</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">按 15 秒自动刷新，适合快速查看当前服务健康度。</p>
+                    <h3 className="text-base font-semibold text-foreground">{t('ops.overview')}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{t('ops.overviewDesc')}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   <OpsMetricCard
-                    label="CPU"
+                    label={t('ops.cpu')}
                     value={`${overview.cpu.percent.toFixed(1)}%`}
-                    sub={`核心数 ${overview.cpu.cores} 核`}
+                    sub={t('ops.cpuCores', { count: overview.cpu.cores })}
                     icon={<Cpu className="size-5" />}
                     tone={getPercentTone(overview.cpu.percent, 70, 90)}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="内存"
+                    label={t('ops.memory')}
                     value={`${overview.memory.percent.toFixed(1)}%`}
-                    sub={`使用 ${formatBytes(overview.memory.used_bytes)} / ${formatBytes(overview.memory.total_bytes)}`}
+                    sub={t('ops.memoryUsage', { used: formatBytes(overview.memory.used_bytes), total: formatBytes(overview.memory.total_bytes) })}
                     icon={<HardDrive className="size-5" />}
                     tone={getPercentTone(overview.memory.percent, 75, 90)}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="PostgreSQL"
+                    label={t('ops.postgres')}
                     value={`${overview.postgres.usage_percent.toFixed(1)}%`}
-                    sub={`连接 ${overview.postgres.open} / ${overview.postgres.max_open || '∞'}`}
+                    sub={t('ops.pgConn', { open: overview.postgres.open, max: overview.postgres.max_open || '∞' })}
                     icon={<Database className="size-5" />}
                     tone={overview.postgres.healthy ? getPercentTone(overview.postgres.usage_percent, 75, 90) : 'danger'}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="Redis"
+                    label={t('ops.redis')}
                     value={`${overview.redis.usage_percent.toFixed(1)}%`}
-                    sub={`连接 ${overview.redis.total_conns} / ${overview.redis.pool_size || '-'}`}
+                    sub={t('ops.redisConn', { open: overview.redis.total_conns, max: overview.redis.pool_size || '-' })}
                     icon={<Server className="size-5" />}
                     tone={overview.redis.healthy ? getPercentTone(overview.redis.usage_percent, 70, 90) : 'danger'}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="当前请求"
+                    label={t('ops.activeRequests')}
                     value={formatNumber(overview.requests.active)}
-                    sub={`运行期累计 ${formatNumber(overview.requests.total)}`}
+                    sub={t('ops.totalRequestsAccum', { count: formatNumber(overview.requests.total) })}
                     icon={<Activity className="size-5" />}
                     tone={overview.requests.active >= Math.max(50, overview.runtime.total_accounts * 0.5) ? 'warning' : 'normal'}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="协程"
+                    label={t('ops.goroutines')}
                     value={formatNumber(overview.runtime.goroutines)}
-                    sub={`账号池 ${overview.runtime.available_accounts} / ${overview.runtime.total_accounts}`}
+                    sub={t('ops.goroutinesPool', { available: overview.runtime.available_accounts, total: overview.runtime.total_accounts })}
                     icon={<Users className="size-5" />}
                     tone={overview.runtime.goroutines >= Math.max(1000, overview.runtime.total_accounts * 3) ? 'danger' : overview.runtime.goroutines >= Math.max(500, overview.runtime.total_accounts * 1.5) ? 'warning' : 'normal'}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="QPS"
+                    label={t('ops.qps')}
                     value={overview.traffic.qps.toFixed(1)}
-                    sub={`峰值 ${overview.traffic.qps_peak.toFixed(1)}`}
+                    sub={t('ops.qpsPeak', { value: overview.traffic.qps_peak.toFixed(1) })}
                     icon={<BarChart3 className="size-5" />}
                     tone="info"
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="TPS"
+                    label={t('ops.tps')}
                     value={formatNumber(Math.round(overview.traffic.tps))}
-                    sub={`峰值 ${formatNumber(Math.round(overview.traffic.tps_peak))}`}
+                    sub={t('ops.tpsPeak', { value: formatNumber(Math.round(overview.traffic.tps_peak)) })}
                     icon={<Zap className="size-5" />}
                     tone="info"
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="RPM"
+                    label={t('ops.rpm')}
                     value={formatNumber(Math.round(overview.traffic.rpm))}
-                    sub={overview.traffic.rpm_limit > 0 ? `限额 ${formatNumber(overview.traffic.rpm_limit)}` : '未开启全局限流'}
+                    sub={overview.traffic.rpm_limit > 0 ? t('ops.rpmLimit', { value: formatNumber(overview.traffic.rpm_limit) }) : t('ops.rpmNoLimit')}
                     icon={<Clock3 className="size-5" />}
                     tone={overview.traffic.rpm_limit > 0 && overview.traffic.rpm >= overview.traffic.rpm_limit * 0.8 ? 'warning' : 'normal'}
+                    t={t}
                   />
                   <OpsMetricCard
-                    label="TPM"
+                    label={t('ops.tpm')}
                     value={formatNumber(Math.round(overview.traffic.tpm))}
-                    sub={`今日 ${formatNumber(overview.traffic.today_tokens)}`}
+                    sub={t('ops.tpmToday', { value: formatNumber(overview.traffic.today_tokens) })}
                     icon={<AlertTriangle className="size-5" />}
                     tone={overview.traffic.error_rate >= 5 ? 'warning' : 'normal'}
+                    t={t}
                   />
                 </div>
               </CardContent>
@@ -170,37 +182,39 @@ function OpsMetricCard({
   sub,
   icon,
   tone,
+  t,
 }: {
   label: string
   value: string
   sub: string
   icon: React.ReactNode
   tone: MetricTone
+  t: (key: string) => string
 }) {
   const toneStyle = {
     normal: {
       badge: 'bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]',
       dot: 'bg-emerald-500',
       icon: 'bg-[hsl(var(--success-bg))] text-[hsl(var(--success))]',
-      label: '正常',
+      label: t('common.normal'),
     },
     warning: {
       badge: 'bg-amber-500/10 text-amber-600',
       dot: 'bg-amber-500',
       icon: 'bg-amber-500/10 text-amber-600',
-      label: '偏高',
+      label: t('common.warning'),
     },
     danger: {
       badge: 'bg-destructive/10 text-destructive',
       dot: 'bg-destructive',
       icon: 'bg-destructive/10 text-destructive',
-      label: '异常',
+      label: t('common.danger'),
     },
     info: {
       badge: 'bg-primary/10 text-primary',
       dot: 'bg-primary',
       icon: 'bg-primary/10 text-primary',
-      label: '实时',
+      label: t('common.info'),
     },
   }[tone]
 
@@ -270,18 +284,18 @@ function formatTimeLabel(iso: string): string {
   })
 }
 
-function formatUptime(seconds: number): string {
-  if (seconds <= 0) return '刚刚启动'
+function formatUptime(seconds: number, t: (key: string) => string): string {
+  if (seconds <= 0) return t('ops.justStarted')
 
   const days = Math.floor(seconds / 86400)
   const hours = Math.floor((seconds % 86400) / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
 
   if (days > 0) {
-    return `${days}天 ${hours}小时`
+    return `${days}${t('ops.days')} ${hours}${t('ops.hours')}`
   }
   if (hours > 0) {
-    return `${hours}小时 ${minutes}分钟`
+    return `${hours}${t('ops.hours')} ${minutes}${t('ops.minutes')}`
   }
-  return `${minutes}分钟`
+  return `${minutes}${t('ops.minutes')}`
 }

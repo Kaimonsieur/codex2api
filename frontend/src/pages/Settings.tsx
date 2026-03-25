@@ -1,5 +1,6 @@
 import type { ChangeEvent, KeyboardEvent } from 'react'
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { api, setAdminKey } from '../api'
 import PageHeader from '../components/PageHeader'
 import StateShell from '../components/StateShell'
@@ -30,9 +31,10 @@ function maskKey(key: string): string {
 }
 
 export default function Settings() {
+  const { t } = useTranslation()
   const booleanOptions = [
-    { label: '关闭', value: 'false' },
-    { label: '开启', value: 'true' },
+    { label: t('common.disabled'), value: 'false' },
+    { label: t('common.enabled'), value: 'true' },
   ]
   const [newKeyName, setNewKeyName] = useState('')
   const [newKeyValue, setNewKeyValue] = useState('')
@@ -81,18 +83,18 @@ export default function Settings() {
       setCreatedKey(result.key)
       setNewKeyName('')
       setNewKeyValue('')
-      showToast('密钥创建成功')
+      showToast(t('settings.keyCreateSuccess'))
       void reload()
     } catch (error) {
-      showToast(`创建失败: ${getErrorMessage(error)}`, 'error')
+      showToast(`${t('settings.createFailed')}: ${getErrorMessage(error)}`, 'error')
     }
   }
 
   const handleDeleteKey = async (id: number) => {
     const confirmed = await confirm({
-      title: '删除 API 密钥',
-      description: '删除后，所有使用该密钥的客户端都会立即失去访问权限。请确认这是你要执行的操作。',
-      confirmText: '确认删除',
+      title: t('settings.deleteKeyTitle'),
+      description: t('settings.deleteKeyDesc'),
+      confirmText: t('settings.confirmDelete'),
       tone: 'destructive',
       confirmVariant: 'destructive',
     })
@@ -102,16 +104,16 @@ export default function Settings() {
 
     try {
       await api.deleteAPIKey(id)
-      showToast('密钥已删除')
+      showToast(t('settings.keyDeleted'))
       void reload()
     } catch (error) {
-      showToast(`删除失败: ${getErrorMessage(error)}`, 'error')
+      showToast(`${t('settings.deleteFailed')}: ${getErrorMessage(error)}`, 'error')
     }
   }
 
   const handleCopy = (text: string) => {
     void navigator.clipboard.writeText(text)
-    showToast('已复制到剪贴板')
+    showToast(t('common.copied'))
   }
 
   const handleSaveSettings = async () => {
@@ -120,9 +122,9 @@ export default function Settings() {
       const updated = await api.updateSettings(settingsForm)
       setSettingsForm(updated)
       setAdminKey(updated.admin_secret ?? '')
-      showToast('设置已保存，实时生效')
+      showToast(t('settings.saveSuccess'))
     } catch (error) {
-      showToast(`保存失败: ${getErrorMessage(error)}`, 'error')
+      showToast(`${t('settings.saveFailed')}: ${getErrorMessage(error)}`, 'error')
     } finally {
       setSavingSettings(false)
     }
@@ -135,33 +137,33 @@ export default function Settings() {
       loading={loading}
       error={error}
       onRetry={() => void reload()}
-      loadingTitle="正在加载系统设置"
-      loadingDescription="密钥列表和系统状态正在同步。"
-      errorTitle="设置页加载失败"
+      loadingTitle={t('settings.loadingTitle')}
+      loadingDescription={t('settings.loadingDesc')}
+      errorTitle={t('settings.errorTitle')}
     >
       <>
         <PageHeader
-          title="系统设置"
-          description="密钥管理与系统状态"
+          title={t('settings.title')}
+          description={t('settings.description')}
         />
 
         {/* API Keys */}
         <Card className="mb-4">
           <CardContent className="p-6">
             <div className="flex items-center justify-between gap-4 mb-4">
-              <h3 className="text-base font-semibold text-foreground">API 密钥</h3>
+              <h3 className="text-base font-semibold text-foreground">{t('settings.apiKeys')}</h3>
             </div>
 
             <div className="flex gap-2 mb-4 flex-wrap">
               <Input
                 className="flex-[1_1_120px]"
-                placeholder="密钥名称（可选）"
+                placeholder={t('settings.keyNamePlaceholder')}
                 value={newKeyName}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setNewKeyName(event.target.value)}
               />
               <Input
                 className="flex-[2_1_240px]"
-                placeholder="自定义密钥（留空则自动生成）"
+                placeholder={t('settings.keyValuePlaceholder')}
                 value={newKeyValue}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setNewKeyValue(event.target.value)}
                 onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
@@ -171,16 +173,16 @@ export default function Settings() {
                 }}
               />
               <Button onClick={() => void handleCreateKey()} className="whitespace-nowrap">
-                创建密钥
+                {t('settings.createKey')}
               </Button>
             </div>
 
             {createdKey ? (
               <div className="p-3 mb-4 rounded-xl bg-[hsl(var(--success-bg))] border border-[hsl(var(--success))]/20 text-sm">
-                <div className="font-semibold mb-1 text-[hsl(var(--success))]">新密钥已生成（仅显示一次）</div>
+                <div className="font-semibold mb-1 text-[hsl(var(--success))]">{t('settings.keyCreated')}</div>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 font-mono text-[13px] break-all">{createdKey}</code>
-                  <Button variant="outline" size="sm" onClick={() => handleCopy(createdKey)}>复制</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleCopy(createdKey)}>{t('common.copy')}</Button>
                 </div>
               </div>
             ) : null}
@@ -188,17 +190,17 @@ export default function Settings() {
             <StateShell
               variant="section"
               isEmpty={keys.length === 0}
-              emptyTitle="暂无 API 密钥"
-              emptyDescription="未设置密钥时接口无需鉴权，生成后会显示在这里。"
+              emptyTitle={t('settings.noKeys')}
+              emptyDescription={t('settings.noKeysDesc')}
             >
               <div className="overflow-auto border border-border rounded-xl">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-[13px] font-semibold">名称</TableHead>
-                      <TableHead className="text-[13px] font-semibold">密钥</TableHead>
-                      <TableHead className="text-[13px] font-semibold">创建时间</TableHead>
-                      <TableHead className="text-[13px] font-semibold">操作</TableHead>
+                      <TableHead className="text-[13px] font-semibold">{t('common.name')}</TableHead>
+                      <TableHead className="text-[13px] font-semibold">{t('common.key')}</TableHead>
+                      <TableHead className="text-[13px] font-semibold">{t('common.createdAt')}</TableHead>
+                      <TableHead className="text-[13px] font-semibold">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -213,7 +215,7 @@ export default function Settings() {
                         </TableCell>
                         <TableCell>
                           <Button variant="destructive" size="sm" onClick={() => void handleDeleteKey(keyRow.id)}>
-                            删除
+                            {t('common.delete')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -224,7 +226,7 @@ export default function Settings() {
             </StateShell>
 
             <div className="text-xs text-muted-foreground mt-3">
-              未设置密钥时 API 无需鉴权。添加第一个密钥后，所有 /v1/* 请求需携带 Authorization: Bearer sk-xxx
+              {t('settings.keyAuthNote')}
             </div>
           </CardContent>
         </Card>
@@ -232,19 +234,19 @@ export default function Settings() {
         {/* System Status */}
         <Card className="mb-4">
           <CardContent className="p-6">
-            <h3 className="text-base font-semibold text-foreground mb-4">系统状态</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4">{t('settings.systemStatus')}</h3>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5">
               <div className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-white/40 border border-border">
-                <label className="text-xs font-bold text-muted-foreground">服务</label>
+                <label className="text-xs font-bold text-muted-foreground">{t('settings.service')}</label>
                 <div className="text-[15px] font-semibold">
                   <Badge variant={health?.status === 'ok' ? 'default' : 'destructive'} className="gap-1.5">
                     <span className={`size-1.5 rounded-full ${health?.status === 'ok' ? 'bg-emerald-500' : 'bg-red-400'}`} />
-                    {health?.status === 'ok' ? '运行中' : '异常'}
+                    {health?.status === 'ok' ? t('common.running') : t('common.error')}
                   </Badge>
                 </div>
               </div>
               <div className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-white/40 border border-border">
-                <label className="text-xs font-bold text-muted-foreground">账号</label>
+                <label className="text-xs font-bold text-muted-foreground">{t('settings.accountsLabel')}</label>
                 <div className="text-[15px] font-semibold">{health?.available ?? 0} / {health?.total ?? 0}</div>
               </div>
               <div className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-white/40 border border-border">
@@ -252,7 +254,7 @@ export default function Settings() {
                 <div className="text-[15px] font-semibold">
                   <Badge variant="default" className="gap-1.5">
                     <span className="size-1.5 rounded-full bg-emerald-500" />
-                    已连接
+                    {t('common.connected')}
                   </Badge>
                 </div>
               </div>
@@ -261,7 +263,7 @@ export default function Settings() {
                 <div className="text-[15px] font-semibold">
                   <Badge variant="default" className="gap-1.5">
                     <span className="size-1.5 rounded-full bg-emerald-500" />
-                    已连接
+                    {t('common.connected')}
                   </Badge>
                 </div>
               </div>
@@ -272,10 +274,10 @@ export default function Settings() {
         {/* Protection Settings */}
         <Card className="mb-4">
           <CardContent className="p-6">
-            <h3 className="text-base font-semibold text-foreground mb-4">流量保护</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4">{t('settings.trafficProtection')}</h3>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">每账号最大并发</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.maxConcurrency')}</label>
                 <Input
                   type="number"
                   min={1}
@@ -283,29 +285,29 @@ export default function Settings() {
                   value={settingsForm.max_concurrency}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, max_concurrency: parseInt(e.target.value) || 1 }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">每个账号同时处理的最大请求数（范围 1~50）</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.maxConcurrencyRange')}</p>
               </div>
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">全局 RPM 限制</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.globalRpm')}</label>
                 <Input
                   type="number"
                   min={0}
                   value={settingsForm.global_rpm}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, global_rpm: parseInt(e.target.value) || 0 }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">每分钟最大请求数，0 = 不限制</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.globalRpmRange')}</p>
               </div>
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">测试连接模型</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.testModelLabel')}</label>
                 <Select
                   value={settingsForm.test_model}
                   onValueChange={(value) => setSettingsForm((f) => ({ ...f, test_model: value }))}
                   options={modelList.map((model) => ({ label: model, value: model }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">账号测试连接时使用的模型</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.testModelHint')}</p>
               </div>
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">测试并发数</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.testConcurrency')}</label>
                 <Input
                   type="number"
                   min={1}
@@ -313,13 +315,13 @@ export default function Settings() {
                   value={settingsForm.test_concurrency}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, test_concurrency: parseInt(e.target.value) || 1 }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">批量测试连接时的并发数（范围 1~200）</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.testConcurrencyRange')}</p>
               </div>
             </div>
-            <h3 className="text-base font-semibold text-foreground mb-4 mt-6">连接池配置</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4 mt-6">{t('settings.connectionPool')}</h3>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">PostgreSQL 最大连接数</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.pgMaxConns')}</label>
                 <Input
                   type="number"
                   min={5}
@@ -327,10 +329,10 @@ export default function Settings() {
                   value={settingsForm.pg_max_conns}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, pg_max_conns: parseInt(e.target.value) || 50 }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">数据库最大连接数（范围 5~500，实时生效）</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.pgMaxConnsRange')}</p>
               </div>
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">Redis 连接池大小</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.redisPoolSize')}</label>
                 <Input
                   type="number"
                   min={5}
@@ -338,62 +340,54 @@ export default function Settings() {
                   value={settingsForm.redis_pool_size}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, redis_pool_size: parseInt(e.target.value) || 30 }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Redis 连接池大小（范围 5~500，重启后生效）</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.redisPoolSizeRange')}</p>
               </div>
             </div>
-            <h3 className="text-base font-semibold text-foreground mb-4 mt-6">自动清理监控</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4 mt-6">{t('settings.autoCleanup')}</h3>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">自动清理 401 账号</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.autoCleanUnauthorized')}</label>
                 <Select
                   value={settingsForm.auto_clean_unauthorized ? 'true' : 'false'}
                   onValueChange={(value) => setSettingsForm((f) => ({ ...f, auto_clean_unauthorized: value === 'true' }))}
                   options={booleanOptions}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  开启后，后台每 30 秒巡检一次，发现运行时为 unauthorized 的账号会自动从号池中清理。
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.autoCleanUnauthorizedDesc')}</p>
               </div>
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">自动清理 429 账号</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.autoCleanRateLimited')}</label>
                 <Select
                   value={settingsForm.auto_clean_rate_limited ? 'true' : 'false'}
                   onValueChange={(value) => setSettingsForm((f) => ({ ...f, auto_clean_rate_limited: value === 'true' }))}
                   options={booleanOptions}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  开启后，后台每 30 秒巡检一次，发现运行时为 rate_limited 的账号会自动从号池中清理。
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.autoCleanRateLimitedDesc')}</p>
               </div>
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">自动清理用量满账号</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.autoCleanFullUsage')}</label>
                 <Select
                   value={settingsForm.auto_clean_full_usage ? 'true' : 'false'}
                   onValueChange={(value) => setSettingsForm((f) => ({ ...f, auto_clean_full_usage: value === 'true' }))}
                   options={booleanOptions}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  开启后，后台每 5 分钟巡检一次，用量 ≥ 100% 的账号会自动清理。正在处理请求的账号不会被清理。
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.autoCleanFullUsageDesc')}</p>
               </div>
             </div>
-            <h3 className="text-base font-semibold text-foreground mb-4 mt-6">安全</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4 mt-6">{t('settings.security')}</h3>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-sm font-semibold text-muted-foreground">管理密钥</label>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t('settings.adminSecret')}</label>
                 <Input
                   type="text"
-                  placeholder="留空则不启用管理接口鉴权"
+                  placeholder={t('settings.adminSecretPlaceholder')}
                   value={settingsForm.admin_secret}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, admin_secret: e.target.value }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  设置后，所有 /api/admin/* 管理接口需要携带 X-Admin-Key 请求头。留空则关闭鉴权。
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.adminSecretDesc')}</p>
               </div>
             </div>
             <Button onClick={() => void handleSaveSettings()} disabled={savingSettings}>
-              {savingSettings ? '保存中...' : '保存设置'}
+              {savingSettings ? t('common.saving') : t('settings.saveSettings')}
             </Button>
           </CardContent>
         </Card>
@@ -401,31 +395,31 @@ export default function Settings() {
         {/* API Endpoints */}
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-base font-semibold text-foreground mb-4">API 端点</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4">{t('settings.apiEndpoints')}</h3>
             <div className="overflow-auto border border-border rounded-xl">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-[13px] font-semibold">方法</TableHead>
-                    <TableHead className="text-[13px] font-semibold">路径</TableHead>
-                    <TableHead className="text-[13px] font-semibold">说明</TableHead>
+                    <TableHead className="text-[13px] font-semibold">{t('settings.method')}</TableHead>
+                    <TableHead className="text-[13px] font-semibold">{t('settings.path')}</TableHead>
+                    <TableHead className="text-[13px] font-semibold">{t('settings.endpointDesc')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <TableRow>
                     <TableCell><Badge variant="default" className="text-[13px]">POST</Badge></TableCell>
                     <TableCell className="font-mono text-[14px]">/v1/chat/completions</TableCell>
-                    <TableCell className="text-[14px] text-muted-foreground">OpenAI 兼容</TableCell>
+                    <TableCell className="text-[14px] text-muted-foreground">{t('settings.openaiCompat')}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell><Badge variant="outline" className="text-[13px]">POST</Badge></TableCell>
                     <TableCell className="font-mono text-[14px]">/v1/responses</TableCell>
-                    <TableCell className="text-[14px] text-muted-foreground">Responses API</TableCell>
+                    <TableCell className="text-[14px] text-muted-foreground">{t('settings.responsesApi')}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell><Badge variant="secondary" className="text-[13px]">GET</Badge></TableCell>
                     <TableCell className="font-mono text-[14px]">/v1/models</TableCell>
-                    <TableCell className="text-[14px] text-muted-foreground">模型列表</TableCell>
+                    <TableCell className="text-[14px] text-muted-foreground">{t('settings.modelList')}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
