@@ -240,6 +240,9 @@ func (db *DB) migrate(ctx context.Context) error {
 		enabled    BOOLEAN DEFAULT TRUE,
 		created_at TIMESTAMP DEFAULT NOW()
 	);
+	ALTER TABLE proxies ADD COLUMN IF NOT EXISTS test_ip VARCHAR(100) DEFAULT '';
+	ALTER TABLE proxies ADD COLUMN IF NOT EXISTS test_location VARCHAR(255) DEFAULT '';
+	ALTER TABLE proxies ADD COLUMN IF NOT EXISTS test_latency_ms INT DEFAULT 0;
 	`
 	_, err := db.conn.ExecContext(ctx, query)
 	return err
@@ -374,16 +377,19 @@ func (db *DB) GetAllAPIKeyValues(ctx context.Context) ([]string, error) {
 
 // ProxyRow 代理行
 type ProxyRow struct {
-	ID        int64     `json:"id"`
-	URL       string    `json:"url"`
-	Label     string    `json:"label"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            int64     `json:"id"`
+	URL           string    `json:"url"`
+	Label         string    `json:"label"`
+	Enabled       bool      `json:"enabled"`
+	CreatedAt     time.Time `json:"created_at"`
+	TestIP        string    `json:"test_ip"`
+	TestLocation  string    `json:"test_location"`
+	TestLatencyMs int       `json:"test_latency_ms"`
 }
 
 // ListProxies 获取所有代理
 func (db *DB) ListProxies(ctx context.Context) ([]*ProxyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT id, url, label, enabled, created_at FROM proxies ORDER BY id`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT id, url, label, enabled, created_at, COALESCE(test_ip,''), COALESCE(test_location,''), COALESCE(test_latency_ms,0) FROM proxies ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +398,7 @@ func (db *DB) ListProxies(ctx context.Context) ([]*ProxyRow, error) {
 	var proxies []*ProxyRow
 	for rows.Next() {
 		p := &ProxyRow{}
-		if err := rows.Scan(&p.ID, &p.URL, &p.Label, &p.Enabled, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.URL, &p.Label, &p.Enabled, &p.CreatedAt, &p.TestIP, &p.TestLocation, &p.TestLatencyMs); err != nil {
 			return nil, err
 		}
 		proxies = append(proxies, p)
@@ -402,7 +408,7 @@ func (db *DB) ListProxies(ctx context.Context) ([]*ProxyRow, error) {
 
 // ListEnabledProxies 获取已启用的代理
 func (db *DB) ListEnabledProxies(ctx context.Context) ([]*ProxyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT id, url, label, enabled, created_at FROM proxies WHERE enabled = true ORDER BY id`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT id, url, label, enabled, created_at, COALESCE(test_ip,''), COALESCE(test_location,''), COALESCE(test_latency_ms,0) FROM proxies WHERE enabled = true ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +417,7 @@ func (db *DB) ListEnabledProxies(ctx context.Context) ([]*ProxyRow, error) {
 	var proxies []*ProxyRow
 	for rows.Next() {
 		p := &ProxyRow{}
-		if err := rows.Scan(&p.ID, &p.URL, &p.Label, &p.Enabled, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.URL, &p.Label, &p.Enabled, &p.CreatedAt, &p.TestIP, &p.TestLocation, &p.TestLatencyMs); err != nil {
 			return nil, err
 		}
 		proxies = append(proxies, p)
@@ -481,6 +487,14 @@ func (db *DB) UpdateProxy(ctx context.Context, id int64, label *string, enabled 
 		}
 	}
 	return nil
+}
+
+// UpdateProxyTestResult 更新代理测试结果
+func (db *DB) UpdateProxyTestResult(ctx context.Context, id int64, ip, location string, latencyMs int) error {
+	_, err := db.conn.ExecContext(ctx,
+		`UPDATE proxies SET test_ip = $1, test_location = $2, test_latency_ms = $3 WHERE id = $4`,
+		ip, location, latencyMs, id)
+	return err
 }
 
 // ==================== Usage Logs（批量写入） ====================

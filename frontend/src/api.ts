@@ -139,8 +139,8 @@ export const api = {
     request<MessageResponse>(`/proxies/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   batchDeleteProxies: (ids: number[]) =>
     request<{ message: string; deleted: number }>('/proxies/batch-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
-  testProxy: (url: string) =>
-    request<ProxyTestResult>('/proxies/test', { method: 'POST', body: JSON.stringify({ url }) }),
+  testProxy: (url: string, id?: number) =>
+    request<ProxyTestResult>('/proxies/test', { method: 'POST', body: JSON.stringify({ url, id }) }),
 }
 
 export interface ProxyRow {
@@ -149,6 +149,9 @@ export interface ProxyRow {
   label: string
   enabled: boolean
   created_at: string
+  test_ip: string
+  test_location: string
+  test_latency_ms: number
 }
 
 export interface ProxyTestResult {
@@ -159,5 +162,6 @@ export interface ProxyTestResult {
   city?: string
   isp?: string
   latency_ms?: number
+  location?: string
   error?: string
 }

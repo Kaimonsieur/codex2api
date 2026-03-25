@@ -1165,6 +1165,7 @@ func (h *Handler) BatchDeleteProxies(c *gin.Context) {
 func (h *Handler) TestProxy(c *gin.Context) {
 	var req struct {
 		URL string `json:"url"`
+		ID  int64  `json:"id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.URL == "" {
 		writeError(c, http.StatusBadRequest, "请提供代理 URL")
@@ -1183,7 +1184,7 @@ func (h *Handler) TestProxy(c *gin.Context) {
 
 	start := time.Now()
 	resp, err := client.Get("http://ip-api.com/json/?lang=zh-CN&fields=status,message,country,regionName,city,isp,query")
-	latencyMs := time.Since(start).Milliseconds()
+	latencyMs := int(time.Since(start).Milliseconds())
 
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "error": fmt.Sprintf("连接失败: %v", err), "latency_ms": latencyMs})
@@ -1199,14 +1200,29 @@ func (h *Handler) TestProxy(c *gin.Context) {
 		return
 	}
 
+	ip := result.Get("query").String()
+	country := result.Get("country").String()
+	region := result.Get("regionName").String()
+	city := result.Get("city").String()
+	isp := result.Get("isp").String()
+	location := country + "·" + region + "·" + city
+
+	// 持久化测试结果
+	if req.ID > 0 {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		defer cancel()
+		_ = h.db.UpdateProxyTestResult(ctx, req.ID, ip, location, latencyMs)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
-		"ip":         result.Get("query").String(),
-		"country":    result.Get("country").String(),
-		"region":     result.Get("regionName").String(),
-		"city":       result.Get("city").String(),
-		"isp":        result.Get("isp").String(),
+		"ip":         ip,
+		"country":    country,
+		"region":     region,
+		"city":       city,
+		"isp":        isp,
 		"latency_ms": latencyMs,
+		"location":   location,
 	})
 }
 
