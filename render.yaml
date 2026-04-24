@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: codex2api
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: CODEX_PORT
+        value: 8080
+      - key: TZ
+        value: Asia/Shanghai
+      - key: ADMIN_SECRET
+        sync: false                  # 手动输入密码，不要同步到 GitHub
+      - key: DATABASE_DRIVER
+        value: sqlite
+      - key: DATABASE_PATH
+        value: ./codex2api.db
+      - key: CACHE_DRIVER
+        value: memory
+      - key: GOMEMLIMIT
+        value: 280MiB
+      - key: GOGC
+        value: 40
+      - key: VECTOR_CACHE_SIZE
+        value: 80
+      - key: EMBEDDING_WORKERS
+        value: 1
+      - key: MAX_CONCURRENT_REQUESTS
+        value: 4
